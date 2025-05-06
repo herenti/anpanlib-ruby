@@ -4,7 +4,6 @@ class Anpan < Bakery
     def onpost(chat, message)
         if message.length > 0
             data = message.split(" ")
-            p
             if data.length > 1
                 func, string = data[0], data.drop(1)
             else
