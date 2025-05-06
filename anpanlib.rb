@@ -11,7 +11,7 @@ require "socket"
 require "uri"
 require "net/http"
 
-$username = ""
+$username = "anpanbot"
 $password = ""
 
 $manager = {}
@@ -49,17 +49,11 @@ $tagserver_weights = [["5", sv0],["6", sv0],["7", sv0],["8", sv0],["16", sv0],["
 
 def g_server(group)
     group = group.gsub(/[-_]/, "q")
-    fnv = group[0,5].to_i(36).to_f
-    if group.length > 6
-        lnv = [group[6,[3, (group.length - 5)].min].to_i(36), 1000].max
-    else
-        lnv = 1000
-    end
-    num = (fnv / lnv) % 1
+    anko = group.length > 6 ? [group[6,[3, (group.length - 5)].min].to_i(36), 1000].max : 1000
+    num = ((group[0, [5, group.length].min].to_i(base=36).to_f) / anko) % 1
     anpan, s_number = 0,0
-    maxnum = $tagserver_weights.map{|x| x[1]}.inject { |sum, x| sum + x }
     for x in $tagserver_weights
-        anpan += x[1].to_f / maxnum
+        anpan += x[1].to_f / ($tagserver_weights.sum{|a| a[1]})
         if(num <= anpan) and s_number == 0
             s_number += x[0].to_i
             break
@@ -136,6 +130,10 @@ def chat_send(chat, *x)
 
 end
 
+def event_i(args)
+    puts "i", args.inspect
+end
+
 #The main bakery
 
 def bootup
@@ -187,7 +185,12 @@ def breadbun()
                     data.append(x.split(":"))
                 end
                 for x in data
-                    event_call(x)
+                    if x.length > 0
+                        event = "event_"+x[0]
+                        if respond_to?(event, :include_private)
+                            send(event, x.drop(1))
+                        end
+                    end
                 end
                 read_byte = "".b
             end
@@ -207,8 +210,5 @@ def breadbun()
     end
 end
 
-def event_call(x)
-    puts x.inspect
-end
 
 bootup()
