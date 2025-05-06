@@ -9,17 +9,7 @@ Made by herenti, with some inspiration from other chatango libraries.
 require "socket"
 require "uri"
 require "net/http"
-
-
-$channels = {
-
-    "none": 0,
-    "red": 256,
-    "blue": 2048,
-    "shield": 64,
-    "staff": 128,
-    "mod": 32768,
-    }
+require "cgi"
 
 def tagserver_weights
 
@@ -51,7 +41,7 @@ def g_server(group)
     return "s" + s_number.to_s + ".chatango.com"
 end
 
-def Auth(user, pass)
+def _Auth(user, pass)
     uri = URI('http://chatango.com/login')
     params = {
         "user_id": user,
@@ -66,11 +56,23 @@ def Auth(user, pass)
     return _auth
 end
 
+def trunc(str, length)
+    addition = str.length > length ? '...' : ''
+    "#{str.truncate(length, omission: '')}#{addition}"
+end
+
+def font_parse(x)
+    #this is temporary untill i can come up with a better method.
+    x = x.gsub("<font color=\"#","<f x")
+    x = x.gsub("\">", "=\"0\">")
+    return x
+end
+
 
 #pm stuff
 class Pm
 
-    attr_accessor :cumsock, :wbyte, :pm_ready, :pingtask
+    attr_accessor :cumsock, :wbyte, :pm_ready, :pingtask, :ctype
 
     def initialize(username, password, bakery)
         @username = username
@@ -78,18 +80,26 @@ class Pm
         @pm_ready = true
         @wbyte = "".b
         @bakery = bakery
-        pm_login()
+        @ctype = "pm"
+        @_auth = _Auth(@username, @password)
+        pm_connect()
     end
 
-    def pm_login()
+    def pm_connect
         @cumsock = TCPSocket.new "c1.chatango.com", 5222
-        _auth = Auth(@username, @password)
-        pm_send("tlogin", _auth, "2")
+        pm_login()
+        @pingtask = Thread.new{pm_ping}
+    end
+
+    def pm_login
+        pm_send("tlogin", @_auth, "2")
         @pm_ready = false
-        @pingtask = Thread.new{pingtask}
+
+
     end
 
     def pm_send(*x)
+
         data = x.join(":").encode()
         if @pm_ready
             byte = "\x00".b
@@ -101,7 +111,8 @@ class Pm
 
     def pm_ping
         while true
-            chat_send("")
+            sleep 30
+            pm_send("")
             sleep 30
         end
     end
@@ -110,7 +121,7 @@ end
 #chat stuff
 class Chat
 
-    attr_accessor :chat,:prefix, :namecolor, :fontsize, :fontcolor, :cumsock, :wbyte, :channel, :chat_ready, :chatinfo, :pingtask
+    attr_accessor :chat,:prefix, :namecolor, :fontsize, :fontcolor, :cumsock, :wbyte, :channel, :chat_ready, :chatinfo, :pingtask, :ctype
 
     def initialize(chat, username, password, bakery)
         @chat = chat
@@ -118,20 +129,31 @@ class Chat
         @password = password
         @wbyte = "".b
         @chat_ready = true
-        @channel = $channels["blue"].to_s
+        @channels = {
+            none: 0,
+            red: 256,
+            "blue": 2048,
+            shield: 64,
+            staff: 128,
+            mod: 32768,
+            }
+        @channel = @channels[:blue].to_s
         @bakery = bakery
         @namecolor = "000000"
         @fontcolor = "000000"
         @fontsize = "12"
+        @ctype = "chat"
+        @prefix = "$"
         chat_login()
     end
 
     def chat_login()
         chat_id = rand(10 ** 15 .. 10 ** 16).to_s
         @cumsock = TCPSocket.new g_server(@chat), 443
+        @pingtask = Thread.new{chat_ping}
         chat_send('bauth', chat, chat_id, @username, @password)
         @chat_ready = false
-        @pingtask = Thread.new{chat_ping}
+
     end
 
     def chat_send(*x)
@@ -152,11 +174,32 @@ class Chat
         end
     end
 
+    def chat_post(msg)
+        msg = msg.to_s
+        msg = msg.gsub(@password, 'anpan')
+        msg = font_parse(msg)
+        font = "<n#{@namecolor}/><f x#{@fontsise}#{@fontcolor}=\"0\">"
+        if msg.length > 2500
+            message, rest = trunc(msg, 2500), msg.drop(2500).join("")
+            chat_send('bm', 'fuck', @channel, "#{font}#{message}</f>")
+            chat_post(rest)
+        else
+            chat_send('bm', 'fuck', @channel, "#{font}#{msg}</f>")
+        end
+    end
 
     #events
 
     def event_b(data)
-        puts data.inspect
+        ucontent = data.drop(9).join(":")
+        _id = ucontent.match("<n(.*?)/>")
+        if _id
+            _id = _id.captures[0]
+        end
+        content = CGI::unescapeHTML(ucontent.gsub(/<.*?>/, ""))
+        if @bakery.respond_to?("onpost")
+            @bakery.onpost(self, content)
+        end
     end
 
 end
@@ -179,9 +222,9 @@ class Bakery
 
     def bake
         for i in @room_list
-            @connections.append(Chat.new(i, @username, @password, self))
+            @connections << Chat.new(i, @username, @password, self)
         end
-        @connections.append(Pm.new(@username, @password, self))
+        @connections << Pm.new(@username, @password, self)
         breadbun()
     end
 
@@ -190,18 +233,22 @@ class Bakery
             read_sock = []
             write_sock = []
             for i in @connections
-                read_sock.append(i.cumsock)
+                if i != nil
+                    read_sock.append(i.cumsock)
+                end
             end
             for i in @connections
                 if i.wbyte != "".b
-                    write_sock.append(i.cumsock)
+                    if i != nil
+                        write_sock.append(i.cumsock)
+                    end
                 end
             end
             r, w, e = IO.select(read_sock, write_sock, [], 0.05)
             if r != nil
                 for i in r
                     while not @rbyte.end_with?("\x00".b)
-                        @rbyte += i.recv(1024)
+                            @rbyte += i.recv(1024) #this is nil when its the pm socket
                     end
                     data = []
                     for x in @rbyte.encode("utf-8").split("\x00")
@@ -210,11 +257,14 @@ class Bakery
                     end
                     for x in data
                         if x.length > 0
-                            puts x.inspect
-                            #event = "event_"+x[0]
-                            #if respond_to?(event, :include_private)
-                                #send(event, x.drop(1))
-                            #end
+                            for c in @connections
+                                if c.cumsock == i
+                                    event = "event_"+x[0]
+                                    if c.respond_to?(event)
+                                        c.send(event, x.drop(1))
+                                    end
+                                end
+                            end
                         end
                     end
                     @rbyte = "".b
@@ -224,7 +274,6 @@ class Bakery
                 for i in w
                     for x in @connections
                         if x.cumsock == i
-                            puts x.wbyte
                             i.puts(x.wbyte)
                             x.wbyte = "".b
                         end
@@ -234,6 +283,3 @@ class Bakery
         end
     end
 end
-
-room_list = ["garden"]
-run = Bakery.new("anpanbot", "", room_list)
