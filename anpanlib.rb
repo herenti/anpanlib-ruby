@@ -62,10 +62,22 @@ def trunc(str, length)
 end
 
 def font_parse(x)
-    #this is temporary untill i can come up with a better method.
-    x = x.gsub("<font color=\"#","<f x")
-    x = x.gsub("\">", "=\"0\">")
-    return x
+    _colors = x.match("<font color=\"#(.*?)\">").captures
+    _part = x.split("<font color=\"#")
+    _r = []
+    _part = _part.reject { |element| element.empty? }
+    for i in _part
+        _part2 = i.split("\">", 2)
+        _color = _part2[0]
+        if _color != ""
+            _rebuild = "#{_color}=\"0\">#{_part2[1]}"
+            _r.append(_rebuild)
+        end
+
+    end
+    _final = _r.map{|item| "<f x"+item}.join
+    puts _final
+    return _final
 end
 
 
