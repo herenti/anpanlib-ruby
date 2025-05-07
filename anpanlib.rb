@@ -79,6 +79,13 @@ def font_parse(x, fontcolor)
     return _final
 end
 
+def event_call(_class, event, data)
+
+    event = "event_"+event
+    if _class.respond_to?(event)
+        _class.send(event, data)
+    end
+end
 
 #pm stuff
 class Pm
@@ -127,6 +134,23 @@ class Pm
             sleep 30
         end
     end
+
+    #events
+
+    def event_OK(data)
+        pm_send("wl")
+        pm_send("getblock")
+        pm_send("getpremium", "1")
+    end
+
+    def event_msg(data)
+        content = CGI::unescapeHTML(data.drop(5).join.gsub(/<.*?>/, ""))
+        from = data[1]
+        puts "pm message from [#{from}]: message content: [#{content}]"
+    end
+
+
+
 end
 
 #chat stuff
@@ -270,10 +294,7 @@ class Bakery
                         if x.length > 0
                             for c in @connections
                                 if c.cumsock == i
-                                    event = "event_"+x[0]
-                                    if c.respond_to?(event)
-                                        c.send(event, x.drop(1))
-                                    end
+                                    event_call(c, x[0], x.drop(1))
                                 end
                             end
                         end
