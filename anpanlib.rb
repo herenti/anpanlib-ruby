@@ -77,14 +77,24 @@ def trunc(str, length)
 end
 
 def font_parse(string, fontcolor)
-    acceptable = ["<b>","</b>", "</font>"]
+    acceptable = ["<b>","</b>", "</font>","<u>","</u>", "<i>","</i>"]
     scanned = string.scan(/<(.*?)>/)
     for i in scanned
         i = i[0]
         i = "<#{i}>"
         if i.downcase.include? "<font color=\"#"
-            _color = i.match(/<font color=\"#(.*?)">/).captures
+            _color = i.match(/<font color=\"#(.*?)">/)
+            if _color != nil
+                _color = _color.captures
+            else
+                string = "Invalid font tag detected."
+                break
+            end
             if _color
+                if _color[0].length != 6
+                    string = "Invalid font tag detected."
+                    break
+                end
                 string = string.gsub(i,"<f x#{_color[0]}=\"0\">")
                 string = string.gsub("</font>", "<f x#{fontcolor}=\"0\">")
             end
