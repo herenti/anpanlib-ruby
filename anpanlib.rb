@@ -61,8 +61,7 @@ def trunc(str, length)
     "#{str.truncate(length, omission: '')}#{addition}"
 end
 
-def font_parse(x)
-    _colors = x.match("<font color=\"#(.*?)\">").captures
+def font_parse(x, fontcolor)
     _part = x.split("<font color=\"#")
     _r = []
     _part = _part.reject { |element| element.empty? }
@@ -76,7 +75,7 @@ def font_parse(x)
 
     end
     _final = _r.map{|item| "<f x"+item}.join
-    puts _final
+    _final = _final.gsub("</font>", "<f x#{fontcolor}=\"0\">")
     return _final
 end
 
@@ -189,7 +188,7 @@ class Chat
     def chat_post(msg)
         msg = msg.to_s
         msg = msg.gsub(@password, 'anpan')
-        msg = font_parse(msg)
+        msg = font_parse(msg, @fontcolor)
         font = "<n#{@namecolor}/><f x#{@fontsise}#{@fontcolor}=\"0\">"
         if msg.length > 2500
             message, rest = trunc(msg, 2500), msg.drop(2500).join("")
