@@ -10,6 +10,7 @@ require "socket"
 require "uri"
 require "net/http"
 require "cgi"
+require "nokogiri"
 
 def tagserver_weights
 
@@ -41,6 +42,20 @@ def g_server(group)
     return "s" + s_number.to_s + ".chatango.com"
 end
 
+def html_yeet(x)
+    x = x.gsub(/<.*?>/, "")
+    x = x.gsub(/[<>]/, "")
+    return
+end
+
+def unescape(x)
+    return CGI::unescapeHTML(x)
+end
+
+def escape(x)
+    return CGI::escapeHTML(x)
+end
+
 def _Auth(user, pass)
     uri = URI('http://chatango.com/login')
     params = {
@@ -61,22 +76,28 @@ def trunc(str, length)
     "#{str.truncate(length, omission: '')}#{addition}"
 end
 
-def font_parse(x, fontcolor)
-    _part = x.split("<font color=\"#")
-    _r = []
-    _part = _part.reject { |element| element.empty? }
-    for i in _part
-        _part2 = i.split("\">", 2)
-        _color = _part2[0]
-        if _color != ""
-            _rebuild = "#{_color}=\"0\">#{_part2[1]}"
-            _r.append(_rebuild)
+def font_parse(string, fontcolor)
+    acceptable = ["<b>","</b>", "</font>"]
+    scanned = string.scan(/<(.*?)>/)
+    for i in scanned
+        i = i[0]
+        i = "<#{i}>"
+        if i.downcase.include? "<font color=\"#"
+            _color = i.match(/<font color=\"#(.*?)">/).captures
+            if _color
+                string = string.gsub(i,"<f x#{_color[0]}=\"0\">")
+                string = string.gsub("</font>", "<f x#{fontcolor}=\"0\">")
+            end
+        else
+            if not acceptable.include? i
+                string = string.gsub(i, "")
+            end
         end
-
     end
-    _final = _r.map{|item| "<f x"+item}.join
-    _final = _final.gsub("</font>", "<f x#{fontcolor}=\"0\">")
-    return _final
+    if string.scan("<").length != string.scan(">").length
+        string = "Unclosed &lt; &gt; tags detected."
+    end
+    return string
 end
 
 def event_call(_class, event, data)
@@ -193,6 +214,7 @@ class Chat
 
     def chat_send(*x)
         data = x.join(":").encode()
+        puts data
         if @chat_ready
             byte = "\x00".b
         else
@@ -231,7 +253,7 @@ class Chat
         if _id
             _id = _id.captures[0]
         end
-        content = CGI::unescapeHTML(ucontent.gsub(/<.*?>/, ""))
+        content = unescape(ucontent.gsub(/<.*?>/, ""))
         if @bakery.respond_to?("onpost")
             @bakery.onpost(self, content)
         end
