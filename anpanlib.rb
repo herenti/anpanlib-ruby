@@ -10,7 +10,6 @@ require "socket"
 require "uri"
 require "net/http"
 require "cgi"
-require "nokogiri"
 
 def tagserver_weights
 
@@ -110,12 +109,45 @@ def font_parse(string, fontcolor)
     return string
 end
 
-def event_call(_class, event, data)
+def event_call(_class, event, *data)
 
     event = "event_"+event
     if _class.respond_to?(event)
-        _class.send(event, data)
+        _class.send(event, *data)
     end
+end
+
+def getuser(user, _alias, uid)
+    if user == ""
+        if _alias == ""
+            user = "None"
+        elsif _alias == "None"
+            user = "NOne"
+        else
+            user = _alias
+        end
+    end
+    return user
+end
+
+class Bunfilling
+
+    def initialize(args)
+        @args = args
+        to_set()
+    end
+
+    def set_attr(key, value)
+        singleton_class.class_eval { attr_accessor "#{key}" }
+        send("#{key}=", value)
+    end
+
+    def to_set
+        for x in @args
+            set_attr(x[0], x[1])
+        end
+    end
+
 end
 
 #pm stuff
@@ -205,8 +237,8 @@ class Chat
             }
         @channel = @channels[:blue].to_s
         @bakery = bakery
-        @namecolor = "000000"
-        @fontcolor = "000000"
+        @namecolor = "C7A793"
+        @fontcolor = "F7DCCE"
         @fontsize = "12"
         @ctype = "chat"
         @prefix = "$"
@@ -224,7 +256,6 @@ class Chat
 
     def chat_send(*x)
         data = x.join(":").encode()
-        puts data
         if @chat_ready
             byte = "\x00".b
         else
@@ -263,10 +294,22 @@ class Chat
         if _id
             _id = _id.captures[0]
         end
+        user = data[1]
+        _alias = data[2]
         content = unescape(ucontent.gsub(/<.*?>/, ""))
-        if @bakery.respond_to?("onpost")
-            @bakery.onpost(self, content)
-        end
+        message = Bunfilling.new([
+                                  ["uid", data[3]],
+                                  ["user", getuser(user, _alias, data[3])],
+                                  ["content", content]
+                                 ])
+        event_call(@bakery, "onpost", self, message)
+    end
+
+    def event_inited(data)
+        chat_send("getpremium", "1")
+        chat_send("g_participants", "start")
+        chat_send("getbannedwords")
+        chat_send("msgbg", "1")
     end
 
 end
@@ -295,7 +338,16 @@ class Bakery
         breadbun()
     end
 
-    def breadbun()
+    def get_chat(_chat)
+        for i in @connections
+            if i.chat == _chat
+                return i
+            end
+        end
+    end
+
+
+    def breadbun
         while @anpan_is_tasty
             read_sock = []
             write_sock = []
@@ -315,10 +367,10 @@ class Bakery
             if r != nil
                 for i in r
                     while not @rbyte.end_with?("\x00".b)
-                            @rbyte += i.recv(1024) #this is nil when its the pm socket
+                            @rbyte += i.recv(1024)
                     end
                     data = []
-                    for x in @rbyte.encode("utf-8").split("\x00")
+                    for x in @rbyte.split("\x00")
                         x = x.rstrip
                         data.append(x.split(":"))
                     end
