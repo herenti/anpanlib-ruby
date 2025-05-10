@@ -2,6 +2,7 @@
 Anpanlib, the ruby version.
 Work in progress.
 Made by herenti, with some inspiration from other chatango libraries.
+todo, chat thread tasks as bunfilling, more history, more room and pm events, send pm messages
 /
 
 
@@ -75,7 +76,7 @@ def trunc(str, length)
     "#{str.truncate(length, omission: '')}#{addition}"
 end
 
-def font_parse(string, fontcolor)
+def font_parse(string, fontcolor, fontsize)
     acceptable = ["<b>","</b>", "</font>","<u>","</u>", "<i>","</i>"]
     scanned = string.scan(/<(.*?)>/)
     for i in scanned
@@ -95,7 +96,7 @@ def font_parse(string, fontcolor)
                     break
                 end
                 string = string.gsub(i,"<f x#{_color[0]}=\"0\">")
-                string = string.gsub("</font>", "<f x#{fontcolor}=\"0\">")
+                string = string.gsub("</font>", "<f x#{fontsize}#{fontcolor}=\"0\">")
             end
         else
             if not acceptable.include? i
@@ -226,14 +227,35 @@ class Chat
         @bakery = bakery
         @namecolor = "C7A793"
         @fontcolor = "F7DCCE"
-        @fontsize = "12"
+        @fontsize = "10"
         @ctype = "chat"
         @prefix = "$"
         @history = []
         chat_login()
     end
 
-    def chat_login()
+    def fart
+        choice = ["thbt","tttbbbbtt", "tttttthhhhhhbbbbbttt", "flubflublbblb","brrrrrraapppp","brrrurnnnntttt", " ", "shhhhppppplaaatt", "surplat", "bromp"]
+        schoice = ["I feel a fart coming on... ", "I am so gassy... ", "Oh nooo im gonna fart... ", "I hope this is not a shart... ", "Please excuse my gas... ", "This might be a stinky one.... ", "Welcome to the fartfest... "]
+        _num = Random.new.rand(1..5)
+        _choice = ""
+        for i in Array.new(_num)
+            _choice += choice.sample
+        end
+        if _choice == " "
+            _choice = "   - It was a silent one...."
+        end
+        return (schoice.sample + _choice)
+    end
+
+    def chat_fart
+        while true
+            chat_post(fart)
+            sleep 60*30
+        end
+    end
+
+    def chat_login
         chat_id = rand(10 ** 15 .. 10 ** 16).to_s
         @cumsock = TCPSocket.new g_server(@chat), 443
         @pingtask = Thread.new{chat_ping}
@@ -261,18 +283,14 @@ class Chat
     end
 
     def get_last_message(_user)
-        fullhist = []
+        userhist = []
         for i in @bakery.connections
             if i.ctype == "chat"
                 for x in i.history
-                    fullhist.append(x)
+                    if x.user.downcase == _user.downcase
+                        userhist.append(x)
+                    end
                 end
-            end
-        end
-        userhist = []
-        for i in fullhist
-            if i.user.downcase == _user
-                userhist.append(i)
             end
         end
         userhist = userhist.sort{ |a,b| a.time <=> b.time }
@@ -283,8 +301,8 @@ class Chat
     def chat_post(msg)
         msg = msg.to_s
         msg = msg.gsub(@password, 'anpan')
-        msg = font_parse(msg, @fontcolor)
-        font = "<n#{@namecolor}/><f x#{@fontsise}#{@fontcolor}=\"0\">"
+        msg = font_parse(msg, @fontcolor, @fontsize)
+        font = "<n#{@namecolor}/><f x#{@fontsize}#{@fontcolor}=\"0\">"
         if msg.length > 2500
             message, rest = msg[0..2499], msg[2500..-1]
             chat_send('bm', 'fuck', @channel, "#{font}#{message}</f>")
@@ -365,7 +383,6 @@ class Chat
     def event_ok(data)
         @owner = data[0]
         @mods = data[6].split(";")
-        puts @mods.inspect
     end
 
     def event_i(data)
@@ -395,7 +412,7 @@ end
 
 class Bakery
 
-    attr_accessor :uids, :anpan_is_tasty, :connections
+    attr_accessor :uids, :anpan_is_tasty, :connections, :username
 
     def initialize(username, password, room_list)
         @username = username
