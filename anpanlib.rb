@@ -117,19 +117,6 @@ def event_call(_class, event, *data)
     end
 end
 
-def getuser(user, _alias, uid)
-    if user == ""
-        if _alias == ""
-            user = "None"
-        elsif _alias == "None"
-            user = "NOne"
-        else
-            user = _alias
-        end
-    end
-    return user
-end
-
 class Bunfilling
 
     def initialize(args)
@@ -219,7 +206,7 @@ end
 #chat stuff
 class Chat
 
-    attr_accessor :chat,:prefix, :namecolor, :fontsize, :fontcolor, :cumsock, :wbyte, :channel, :chat_ready, :chatinfo, :pingtask, :ctype
+    attr_accessor :chat,:prefix, :namecolor, :bakery, :fontsize, :fontcolor, :cumsock, :wbyte, :channel, :chat_ready, :pingtask, :ctype, :owner, :mods, :history
 
     def initialize(chat, username, password, bakery)
         @chat = chat
@@ -242,6 +229,7 @@ class Chat
         @fontsize = "12"
         @ctype = "chat"
         @prefix = "$"
+        @history = []
         chat_login()
     end
 
@@ -272,18 +260,70 @@ class Chat
         end
     end
 
+    def get_last_message(_user)
+        fullhist = []
+        for i in @bakery.connections
+            if i.ctype == "chat"
+                for x in i.history
+                    fullhist.append(x)
+                end
+            end
+        end
+        userhist = []
+        for i in fullhist
+            if i.user.downcase == _user
+                userhist.append(i)
+            end
+        end
+        userhist = userhist.sort{ |a,b| a.time <=> b.time }
+        message = userhist[-1]
+        return message
+    end
+
     def chat_post(msg)
         msg = msg.to_s
         msg = msg.gsub(@password, 'anpan')
         msg = font_parse(msg, @fontcolor)
         font = "<n#{@namecolor}/><f x#{@fontsise}#{@fontcolor}=\"0\">"
         if msg.length > 2500
-            message, rest = trunc(msg, 2500), msg.drop(2500).join("")
+            message, rest = msg[0..2499], msg[2500..-1]
             chat_send('bm', 'fuck', @channel, "#{font}#{message}</f>")
-            chat_post(rest)
+            Thread.new{sleep 1; chat_post(rest)}
         else
             chat_send('bm', 'fuck', @channel, "#{font}#{msg}</f>")
         end
+    end
+
+    def r_uids(uid, user)
+        key, value = uid.downcase, user.downcase
+        if not @bakery.uids.keys.include? key
+            @bakery.uids[key] = [value]
+        else
+            values = @bakery.uids[key]
+            if not values.include? value
+                values.append(value)
+                @bakery.uids[key] = values
+            end
+        end
+    end
+
+    def getuser(user, _alias, uid)
+        if user == ""
+            user = "None"
+        end
+        if user != "None"
+            r_uids(uid, user)
+        end
+        if user == "None"
+            if _alias == ""
+                user = "None"
+            elsif _alias == "None"
+                user = "NOne"
+            else
+                user = _alias
+            end
+        end
+        return user
     end
 
     #events
@@ -298,10 +338,16 @@ class Chat
         _alias = data[2]
         content = unescape(ucontent.gsub(/<.*?>/, ""))
         message = Bunfilling.new([
+                                  ["user", getuser(data[1], data[2], data[3])],
+                                  ["cid", data[4]],
                                   ["uid", data[3]],
-                                  ["user", getuser(user, _alias, data[3])],
-                                  ["content", content]
+                                  ["time", data[0]],
+                                  ["sid", data[5]],
+                                  ["ip", data[6]],
+                                  ["content", content],
+                                  ["chat", @chat]
                                  ])
+        @history.append(message)
         event_call(@bakery, "onpost", self, message)
     end
 
@@ -312,12 +358,44 @@ class Chat
         chat_send("msgbg", "1")
     end
 
+    def event_denied(data)
+        puts "login fail: #{@chat}"
+    end
+
+    def event_ok(data)
+        @owner = data[0]
+        @mods = data[6].split(";")
+        puts @mods.inspect
+    end
+
+    def event_i(data)
+        ucontent = data.drop(9).join(":")
+        _id = ucontent.match("<n(.*?)/>")
+        if _id
+            _id = _id.captures[0]
+        end
+        content = unescape(ucontent.gsub(/<.*?>/, ""))
+        message = Bunfilling.new([
+                                  ["user", getuser(data[1], data[2], data[3])],
+                                  ["cid", data[4]],
+                                  ["uid", data[3]],
+                                  ["time", data[0]],
+                                  ["sid", data[5]],
+                                  ["ip", data[6]],
+                                  ["content", content],
+                                  ["chat", @chat]
+                                 ])
+        @history.append(message)
+    end
+
 end
 
 
 #The main bakery
 
 class Bakery
+
+    attr_accessor :uids, :anpan_is_tasty, :connections
 
     def initialize(username, password, room_list)
         @username = username
@@ -327,6 +405,7 @@ class Bakery
         @room_list = room_list
         @anpan_is_tasty = true
         @rbyte = "".b
+        @uids = {}
         bake()
     end
 
@@ -344,6 +423,38 @@ class Bakery
                 return i
             end
         end
+    end
+
+    def whois(string)
+        a = [string]
+        while true
+            l = a.length
+            for n in a
+                i = _whois(n)
+                if i.length > 0
+                    a += i
+                else
+                    a = ['no accounts for that user']
+                    break
+                end
+                a = a.to_set.to_a
+            end
+            if l == a.length
+                break
+            end
+        end
+        return a.join(", ")
+    end
+
+    def _whois(string)
+        a = []
+        for key, value in @uids
+            i = @uids[key]
+            if i.include? string
+                a += i
+            end
+        end
+        return a.to_set.to_a
     end
 
 
