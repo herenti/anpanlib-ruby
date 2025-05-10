@@ -1,5 +1,5 @@
 require_relative "anpanlib"
-require_relative "genrainbow" #this code can be found in the "not-mine" repository. i do not own the rainbow code.
+require_relative "genrainbow" #this code can be found in the "extra-stuff" repository. i do not own the rainbow code.
 require_relative "translate"
 
 class Anpan < Bakery
@@ -70,6 +70,19 @@ class Anpan < Bakery
                 elsif func == "msend"
                     _chat, _message = string.split(" ", 2)
                     get_chat(_chat).chat_post(_message)
+                elsif func == "check"
+                    puts chat.bakery.uids
+                    chat.chat_post("done")
+                elsif func == "whois"
+                    chat.chat_post(chat.bakery.whois(string))
+                elsif func == "seen"
+                    _user = string.downcase
+                    begin
+                        _message = chat.get_last_message(_user)
+                        chat.chat_post("[<b>#{_message.user}</b>] was last seen saying [<b>#{_message.content}</b>] in the room [<b>#{_message.chat}</b>]")
+                    rescue
+                        chat.chat_post("I have not seen them around yet.")
+                    end
 
                 end
             end
@@ -84,4 +97,4 @@ room_list = []
 
 $locked_rooms = []
 
-Anpan.new("", "", room_list)
+Anpan.new("username", "password", room_list)
