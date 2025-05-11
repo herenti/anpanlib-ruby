@@ -363,10 +363,10 @@ class Chat
                                   ["sid", data[5]],
                                   ["ip", data[6]],
                                   ["content", content],
-                                  ["chat", @chat]
+                                  ["chat", self]
                                  ])
         @history.append(message)
-        event_call(@bakery, "onpost", self, message)
+        event_call(@bakery, "onpost", message)
     end
 
     def event_inited(data)
@@ -400,7 +400,7 @@ class Chat
                                   ["sid", data[5]],
                                   ["ip", data[6]],
                                   ["content", content],
-                                  ["chat", @chat]
+                                  ["chat", self]
                                  ])
         @history.append(message)
     end
