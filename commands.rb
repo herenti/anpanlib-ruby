@@ -67,13 +67,12 @@ class Commands
         if !@admins.include? message.user.downcase
             return "You do not have permission to use this command."
         else
+            _chat, _message = string.split(" ", 2)
             begin
-                _chat, _message = string.split(" ", 2)
-                _chat = message.chat.bakery.get_chat(_chat)
+                message.chat.bakery.get_chat(_chat).chat_post(_message)
             rescue
                 return "Error getting the chat. I am maybe not in that chat?"
             end
-            message.chat.bakery.get_chat(_chat).chat_post(_message)
             return "Done."
         end
     end
