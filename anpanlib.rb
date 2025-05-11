@@ -436,8 +436,10 @@ class Bakery
 
     def get_chat(_chat)
         for i in @connections
-            if i.chat == _chat
-                return i
+            if i.ctype == "chat"
+                if i.chat == _chat
+                    return i
+                end
             end
         end
     end
