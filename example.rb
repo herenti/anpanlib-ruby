@@ -16,11 +16,10 @@ class Anpan < Bakery
                 end
                 data = content.split(" ")
                 if data.length > 1
-                    func, string = data[0], data.drop(1)
+                    func, string = data[0], data.drop(1).join(" ")
                 else
-                    func, string = data[0].downcase, [""]
+                    func, string = data[0].downcase, ""
                 end
-                string = string.join(" ")
                 if func[0] == chat.prefix
                     func = func[1..-1]
                     if $locked_rooms.include? chat.chat
