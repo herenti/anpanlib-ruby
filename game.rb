@@ -6,7 +6,7 @@ when classes level up they get more points to affiliated skills
 starting villiage does not actually exist on the map. once players travel to the homecity they can not go back.
 statmults by race affinity, levelup
 each homecity has a homevillage by race
-continue to migrate from gamedata class to seperate classes for things.
+continue to migrate from gamedata class to seperate classes for things. possibly make user class
 """
 
 class Game
