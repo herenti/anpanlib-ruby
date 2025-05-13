@@ -190,21 +190,12 @@ end
 class NewObj
 
     def initialize(**args)
-        @args = args
-        to_set()
-    end
 
-    def set_attr(key, value)
-        singleton_class.class_eval { attr_accessor "#{key}" }
-        send("#{key}=", value)
-    end
-
-    def to_set
-        for x, y in @args
-            set_attr(x, y)
+        for key, value in args
+            singleton_class.class_eval { attr_accessor "#{key}" }
+            send("#{key}=", value)
         end
     end
-
 end
 
 class Gamedata
