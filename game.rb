@@ -6,7 +6,9 @@ when classes level up they get more points to affiliated skills
 starting villiage does not actually exist on the map. once players travel to the homecity they can not go back.
 statmults by race affinity, levelup
 each homecity has a homevillage by race
-continue to migrate from gamedata class to seperate classes for things. possibly make user class
+migrate from gamedata class to seperate classes for things.
+make user class. should be easy and work well. send args to class to make the user
+each class has its own story.
 """
 
 class Game
@@ -143,7 +145,7 @@ class Game
             })
             @user_data[@username.downcase] = @user
             save_data
-            @response =  "You have now begun your journey. You were born in a small villiage named #{@user.homevillage} near the city #{@user.homecity}. To begin your adventure you must make your way to the guild in #{@user.homecity}. You own an a magic encyclopedia passed down to you from your ancestors. It only shows you the information you need to see. Use the command \"info\" to get started. All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
+            @response =  "You have now begun your journey. You were born in a small villiage named #{@user.homevillage} near the city #{@user.homecity}. To begin your adventure you must make your way to the guild in #{@user.homecity}. You own a magic encyclopedia, passed down to you from your parents. It only shows you the information you need to see. Use the command \"info\" to get started. All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
         else
             @response =  "You are already registered."
         end
