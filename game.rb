@@ -3,8 +3,9 @@ require "json"
 todo:
 can only travel to nearby before progressing - buy teleport scroll,
 when classes level up they get more points to affiliated skills
-starting villiage does not actually exist in game data, the only place users can travel at 0 progress is their home city, and they can never go back
+starting villiage does not actually exist on the map. once players travel to the homecity they can not go back.
 statmults by race affinity
+each homecity has a homevillage by race
 """
 
 class Game
@@ -21,6 +22,9 @@ class Game
             @registered = true
         else
             @registered = false
+        end
+        if @registered
+            @user = @user_data[@username]
         end
         @gdata = Gamedata.new
         command_call
@@ -42,6 +46,7 @@ class Game
                       "stats": NewObj.new(**y["stats"]),
                       "level": y["level"],
                       "exp": y["exp"],
+                      "homevillage": y["homevillage"],
                       "class": y["class"],
                       "race": y["race"]
                      })
@@ -65,6 +70,7 @@ class Game
                         "stats": {"physical": y.stats.physical, "magic": y.stats.magic, "stealth": y.stats.stealth, "health": y.stats.health},
                         "level": y.level,
                         "exp": y.exp,
+                        "homevillage": y.homevillage,
                         "class": y.class,
                         "race": y.race
                     }
@@ -76,7 +82,7 @@ class Game
     def command_call
         if @registered
             if self.respond_to?(@command)
-                @response =  self.send(@command)
+                self.send(@command)
             else
                 @response = "That is not a valid command."
             end
@@ -124,17 +130,19 @@ class Game
                 "weapons": ["unarmed"],
                 "title": "",
                 "progress": 0,
-                "location": location,
+                "location": 0,
                 "homecity": homecity,
                 "stats": NewObj.new(**{"physical": pnum, "magic": mnum, "stealth": snum, "health": hnum}),
                 "level": 0,
                 "exp": 0,
+                "homevillage": "gethomevillage",
                 "class": _class,
                 "race": race
+
             })
             @user_data[@username.downcase] = @user
             save_data
-            @response =  "You have now begun your journey. You were born in a small villiage named asdfk near the city #{@user.homecity}. To begin your adventure you must make your way to the guild. You own an a magic encyclopedia passed down to you from your ancestors. It only shows you the information you need to see. Use the command \"info thingtogetinfoon\". All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
+            @response =  "You have now begun your journey. You were born in a small villiage named asdfk near the city #{@user.homecity}. To begin your adventure you must make your way to the guild in #{@user.homecity}. You own an a magic encyclopedia passed down to you from your ancestors. It only shows you the information you need to see. Use the command \"info\" to get started. All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
         else
             @response =  "You are already registered."
         end
@@ -142,8 +150,8 @@ class Game
 
     def com_progress
         message = @gdata.progress_message
-        message = message[@user.progress.to_s]
-        @response =  message
+        message = message.dig @user.progress.to_s.to_sym
+        @response =  message.gsub("<m>", @user.money.to_s).gsub("<h>", @user.homecity)
     end
 
     def com_wallet
@@ -152,9 +160,17 @@ class Game
 
     def com_location
         location = @user.location
-        for x in @gdata.locations[location]
-            if x["id"] == location
-                @response =  "You are in #{location}. Here is it's description: #{x["desc"]}"
+        if location == 0
+            @response = "You are in your home village, #{@user.homevillage}. It's description: descriptionhere"
+            return
+        end
+        for x, y in @gdata.locations
+            loc =  y.dig :id
+            puts loc, location
+            if loc.to_i == location
+                puts "Derp"
+                desc = y.dig :desc
+                @response = "You are in #{x}. It's description: #{desc.to_s}."
             end
         end
     end
@@ -197,12 +213,12 @@ class Gamedata
 
     def initialize
         @progress_message = {
-            "0": "You have just started on your journey to be a hero. You are kind of broke though, you only have <m> gold, you have not had your first level up, but hopefully things work out well. Your job is to travel to the closest town, <h> and join the guild.",
+            "0": "You have just started on your journey to be a hero. You are kind of broke though, as you only have <m> gold, you have not had your first level up, but hopefully things work out well. Your job is to travel to the closest town, <h>, and join the guild.",
             "1": "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
         }
         @locations = {"Aurendale":
                       {
-                       "id": 1, "nearby":[], "desc": "A grassland city with a large farming economy. It has a guild, an item shop, and a combat shop. There is a famed training ground for the greatest warriors here."
+                       "id": 1, "nearby":[], "desc": "A grassland city with a large farming economy. It has a guild, an item shop, and a combat shop. There is a famed training ground for the greatest warriors in the country."
                       },
                       "Lorienna":
                      {
@@ -241,4 +257,15 @@ end
 game = Game.new("herenti", "register", "thief human")
 
 puts game.response
-puts game.user_data["herenti"].homecity
+
+sleep 1
+
+game = Game.new("herenti", "location", "")
+
+puts game.response
+
+sleep 1
+
+game = Game.new("herenti", "progress", "")
+
+puts game.response
