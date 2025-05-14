@@ -40,26 +40,7 @@ class Game
         if data.length > 0
             data = JSON.parse(data)
             for x, y in data
-                for i in @classes
-                    if i.name = y["class"]
-                        _class = i
-                        break
-                    end
-                end
-                _user = NewObj.new(**{
-                      "money":  y["money"],
-                      "weapons": y["weapons"],
-                      "title": y["title"],
-                      "progress": y["progress"],
-                      "location": y["location"],
-                      "homecity": y["homecity"],
-                      "stats": NewObj.new(**y["stats"]),
-                      "level": y["level"],
-                      "exp": y["exp"],
-                      "homevillage": y["homevillage"],
-                      "class": _class,
-                      "race": y["race"]
-                     })
+                _user = NewObj.new(**y)
                 userdata[x] = _user
             end
         end
@@ -70,10 +51,8 @@ class Game
     def save_data
         for x, y in @user_data
             obj_hash = {}
-            stats_hash = {}
-            stat_mult = {}
-            y.instance_variables.each {|var| obj_hash[var.to_s.delete("@")] = y.instance_variable_get(var) }
-            y.stats.instance_variables.each {|var| stats_hash[var.to_s.delete("@")] = y.stats.instance_variable_get(var) }
+            obj_hash = Hash[y.instance_variables.map { |var| [var.to_s[1..-1], y.instance_variable_get(var)] } ]
+            stats_hash = Hash[y.stats.instance_variables.map { |var| [var.to_s[1..-1], y.stats.instance_variable_get(var)] } ]
             obj_hash[:stats] = stats_hash
             @user_data[x] = obj_hash
         end
