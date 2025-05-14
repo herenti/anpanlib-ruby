@@ -68,25 +68,16 @@ class Game
     end
 
     def save_data
-        data = {}
-        for x, y in user_data
-            _tohash = {
-                        "money": y.money,
-                        "weapons": y.weapons,
-                        "title": y.title,
-                        "progress": y.progress,
-                        "location": y.location,
-                        "homecity": y.homecity,
-                        "stats": {"physical": y.stats.physical, "magic": y.stats.magic, "stealth": y.stats.stealth, "health": y.stats.health},
-                        "level": y.level,
-                        "exp": y.exp,
-                        "homevillage": y.homevillage,
-                        "class": y.class.name,
-                        "race": y.race
-                    }
-            data[x] = _tohash
+        for x, y in @user_data
+            obj_hash = {}
+            stats_hash = {}
+            stat_mult = {}
+            y.instance_variables.each {|var| obj_hash[var.to_s.delete("@")] = y.instance_variable_get(var) }
+            y.stats.instance_variables.each {|var| stats_hash[var.to_s.delete("@")] = y.stats.instance_variable_get(var) }
+            obj_hash[:stats] = stats_hash
+            @user_data[x] = obj_hash
         end
-        File.write('gamedata.txt', data.to_json)
+        File.write('gamedata.txt', @user_data.to_json)
     end
 
     def command_call
@@ -100,7 +91,7 @@ class Game
             if @command == "com_register"
                 com_register
             else
-                @response =  "You have not registered for the game yet. Use the command \"register\". Use the command \"info\" for any questions. All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
+                @response =  "You have not registered for the game yet. Use the command \"register\". Use the command \"info\" for any questions once registered. All game commands must have the word \"game\" in front of them, including any command prefix, unless using the terminal on your computer. Chatbot example: \"$game register calssname racename gender\". Terminal example \"register classname racename gender\"."
             end
         end
     end
@@ -129,7 +120,7 @@ class Game
             homecity = user_class.homecity
             homevillage = @gdata.homevillages[sym(homecity)][sym(race)]
             @user = NewObj.new(**{
-                "money": 1000,
+                "money": 500,
                 "weapons": ["unarmed"],
                 "title": "",
                 "progress": 0,
@@ -140,12 +131,13 @@ class Game
                 "exp": 0,
                 "homevillage": homevillage[0],
                 "class": user_class,
-                "race": race
+                "race": race,
+                "name": @username
 
             })
             @user_data[@username.downcase] = @user
             save_data
-            @response =  "You have now begun your journey. You were born in a small villiage named #{@user.homevillage} near the city #{@user.homecity}. To begin your adventure you must make your way to the guild in #{@user.homecity}. You own a magic encyclopedia, passed down to you from your parents. It only shows you the information you need to see. Use the command \"info\" to get started. All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
+            @response =  "You have now begun your journey. You were born in a small villiage named #{@user.homevillage} near the city #{@user.homecity}. To begin your adventure you must make your way to the guild in #{@user.homecity}. You own an a magic encyclopedia passed down to you from your ancestors. It only shows you the information you need to see. Use the command \"info\" to get started. All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
         else
             @response =  "You are already registered."
         end
@@ -158,7 +150,7 @@ class Game
     end
 
     def com_wallet
-        @response =  "You have #{@user.money.to_s} gold in your coin purse."
+        @response =  ("In your wallet you have: " + Money.new(@user.money).calc)
     end
 
     def com_location
@@ -199,6 +191,63 @@ class NewObj
         end
     end
 end
+
+class User
+
+    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :name
+
+    def initialize
+        @money = money
+        @weapons = weapons
+        @title = title
+        @progress = progress
+        @location = location
+        @homecity = homecity
+        @stats = NewObj(**stats)
+        @level = level
+        @exp = exp
+        @homevillage = homevillage
+        @uclass = uclass
+        @race = race
+    end
+end
+
+class Money
+
+    attr_accessor :calc
+
+    def initialize money
+        @bronze = 1
+        @silver = 1000
+        @gold = 10000
+        @money = money
+        calc_money
+    end
+
+    def calc_money
+        list = []
+        _money = @money
+        if _money > @gold
+            _gold = _money / @gold
+            _money -= @gold * _gold
+            if _gold > 1 then list.append("#{_gold.to_s} gold coins") else list.append("#{_gold.to_s} gold coin") end
+        end
+        if _money > @silver
+            _silver = _money / @silver
+            _money -= @silver * _silver
+            if _silver > 1 then list.append("#{_silver.to_s} silver coins") else list.append("#{_silver.to_s} sliver coin") end
+        end
+        if _money > @bronze
+            _bronze = _money
+            if _bronze > 1 then list.append("#{_bronze.to_s} bronze coins") else list.append("#{_bronze.to_s} bronze coin") end
+        end
+
+        @calc =  string = (list.join(", ") + ".")
+    end
+end
+
+
+
 
 class Gamedata
 
@@ -244,6 +293,23 @@ class Gamedata
                         }
         @races = {"druidim": "description", "harissif": "description", "human": "description"}
 
+    end
+end
+
+class Story
+
+    attr_accessor
+
+    def initialize args, user
+        @class = args
+        @user = user
+    end
+
+    def mage
+
+        story = {"0": "You have just started on your journey to be a mage. You are kind of broke though, as you only have #{Money.new(@user.money).calc} Eventually you want to enroll at the magic univeristy in lorienna, but you dont have nearly enough money  Your job is to travel to the closest town, <h>, and join the guild.",
+            "1": "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
+                }
     end
 end
 
@@ -309,4 +375,8 @@ puts game.response
 
 sleep 1
 
-puts game.user.class.name
+game = Game.new("herenti", "wallet", "")
+
+puts game.response
+
+sleep 1
