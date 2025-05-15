@@ -153,6 +153,7 @@ class Game
 
     def com_travel
         /once traveled,
+        random chance to assign battle event in wilderness
         story = Story.new(@user)
         if story.event != nil
             @response = story.response
@@ -329,22 +330,27 @@ class Events
 
     def initialize user_data, user, event
         @user_data = user_data
-        @event = event.gsub(" ", "_")
+        @event, @args = event.split(" ", 2)
         @user = user
         self.send(@event)
     end
 
-    def join_guild
-        if @user.event == "join_guild"
+    def joinguild
+        if @user.event == "joinguild"
             if @user.location == (@user.homecity+"-guild")
                 @user.guild = guilds[@user.homecity]
                 @user.progress = 1
                 @response = "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
                 @user.event = nil
+                @user_data[@user.name] = @user
                 save_data @user_data
                 return
             end
         end
+    end
+
+    def attack
+        battle = Battles.new(@user.event)
     end
 end
 
@@ -368,8 +374,8 @@ class Story
                 @response = "You are in your home village, #{@user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
                 @event = nil
             elsif @location == "#{@user.homecity}-guild"
-                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event join guild\" and you will be signed up."
-                @event = "join_guild"
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event joinguild\" and you will be signed up."
+                @event = "joinguild"
             else
                 if @action == "check"
                     @response = "I have left my village and am now in #{@user.homecity}. My task is to -travel- to the guild here."
@@ -391,8 +397,8 @@ class Story
                 @response = "You are in your home village, #{@user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
                 @event = nil
             elsif @location == "#{@user.homecity}-guild"
-                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event join guild\" and you will be signed up."
-                @event = "join_guild"
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event joinguild\" and you will be signed up."
+                @event = "joinguild"
             else
                 if @action == "check"
                     @response = "I have left my village and am now in #{@user.homecity}. My task is to -travel- to the guild here."
@@ -416,8 +422,8 @@ class Story
                 @response = "You are in your home village, #{user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
                 @event = nil
             elsif @location == "#{@user.homecity}-guild"
-                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event join guild\" and you will be signed up."
-                @event = "join_guild"
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event joinguild\" and you will be signed up."
+                @event = "joinguild"
             else
                 if @action == "check"
                     @response = "I have left my village and am now in #{@user.homecity}. My task is to -travel- to the guild here."
@@ -433,7 +439,8 @@ class Story
     end
 end
 
-
+class Battles
+end
 
 class Mage
 
