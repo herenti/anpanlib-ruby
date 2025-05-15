@@ -5,9 +5,6 @@ can only travel to nearby location before traveling to further location. map mus
 when classes level up they get more points to affiliated skills
 starting villiage does not actually exist on the map. once players travel to the homecity they can not go back.
 statmults by race affinity, levelup
-each homecity has a homevillage by race
-migrate from gamedata class to seperate classes for things.
-make user class. should be easy and work well. send args to class to make the user
 each class has its own story.
 area random enemy encounters less by stealth. hit chance by stealth. attack speed by agility. put in agility in class info.
 check event on travel
