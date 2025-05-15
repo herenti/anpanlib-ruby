@@ -9,6 +9,8 @@ each homecity has a homevillage by race
 migrate from gamedata class to seperate classes for things.
 make user class. should be easy and work well. send args to class to make the user
 each class has its own story.
+area random enemy encounters less by stealth. hit chance by stealth. attack speed by agility. put in agility in class info.
+check event on travel
 """
 
 class Game
@@ -40,6 +42,8 @@ class Game
         if data.length > 0
             data = JSON.parse(data)
             for x, y in data
+                _stats = NewObj.new(**y["stats"])
+                y["stats"] = _stats
                 _user = NewObj.new(**y)
                 userdata[x] = _user
             end
@@ -50,10 +54,9 @@ class Game
 
     def save_data
         for x, y in @user_data
-            obj_hash = {}
             obj_hash = Hash[y.instance_variables.map { |var| [var.to_s[1..-1], y.instance_variable_get(var)] } ]
             stats_hash = Hash[y.stats.instance_variables.map { |var| [var.to_s[1..-1], y.stats.instance_variable_get(var)] } ]
-            obj_hash[:stats] = stats_hash
+            obj_hash["stats"] = stats_hash
             @user_data[x] = obj_hash
         end
         File.write('gamedata.txt', @user_data.to_json)
@@ -109,9 +112,10 @@ class Game
                 "level": 0,
                 "exp": 0,
                 "homevillage": homevillage[0],
-                "class": user_class,
+                "class": user_class.name,
                 "race": race,
-                "name": @username
+                "name": @username,
+                "guild": nil
 
             })
             @user_data[@username.downcase] = @user
@@ -153,7 +157,28 @@ class Game
     end
 
     def com_travel
-        #position = @user_data
+        /once traveled,
+        event_res = Events.new(@user).response
+        if event_res.length > 0
+            @response = event_res
+            return
+        /
+    end
+
+    def com_join
+        if args == "guild"
+            if @user.guild == nil
+                if @user.progress == 0
+                    if @user.location == (@user.homecity+"-guild")
+                        @user.guild = guilds[@user.homecity]
+                        @user.progres = 1
+                        @response = "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
+                        save_data
+                        return
+                    end
+                end
+            end
+        end
     end
 
 
@@ -173,9 +198,9 @@ end
 
 class User
 
-    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :name
+    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :name, :guild
 
-    def initialize
+    def initialize money, weapons, title, progress, location, homecity, stats, level, exp, homevillage, uclass, race, guild, username
         @money = money
         @weapons = weapons
         @title = title
@@ -187,7 +212,10 @@ class User
         @exp = exp
         @homevillage = homevillage
         @uclass = uclass
-        @race = race
+        @race = race,
+        @guild = nil,
+        @name = username
+
     end
 end
 
@@ -197,6 +225,7 @@ class Money
 
     def initialize money
         @bronze = 1
+        @brass = 100
         @silver = 1000
         @gold = 10000
         @money = money
@@ -214,7 +243,12 @@ class Money
         if _money > @silver
             _silver = _money / @silver
             _money -= @silver * _silver
-            if _silver > 1 then list.append("#{_silver.to_s} silver coins") else list.append("#{_silver.to_s} sliver coin") end
+            if _silver > 1 then list.append("#{_silver.to_s} silver coins") else list.append("#{_silver.to_s} silver coin") end
+        end
+        if _money > @brass
+            _brass = _money / @brass
+            _money -= @brass * _brass
+            if _brass > 1 then list.append("#{_brass.to_s} brass coins") else list.append("#{_brass.to_s} brass coin") end
         end
         if _money > @bronze
             _bronze = _money
@@ -275,26 +309,37 @@ class Gamedata
     end
 end
 
-class Story
+class Events
 
-    attr_accessor
+    attr_accessor :event, :story
 
-    def initialize args, user
-        @class = args
+    def initialize user
+        _class = user.uclass
         @user = user
+        self.send(_class)
+        @response = ""
+        @location = user.location
+        @progress = user.progress
     end
 
     def mage
 
-        story = {"0": "You have just started on your journey to be a mage. You are kind of broke though, as you only have #{Money.new(@user.money).calc} Eventually you want to enroll at the magic univeristy in lorienna, but you dont have nearly enough money  Your job is to travel to the closest town, <h>, and join the guild.",
-            "1": "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
-                }
+        case @progress
+        when 0
+            if @location == "lorienna-guild"
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"join guild\" and you will be signed up."
+            end
+
+
+        end
     end
 end
 
+
+
 class Mage
 
-    attr_accessor :homecity, :raceaff, :statmult, :raceunaff, :name, :special_abilities
+    attr_accessor :homecity, :raceaff, :statmult, :raceunaff, :name, :special_abilities, :waff, :wunaff
 
     def initialize
         @name = "mage"
@@ -302,25 +347,30 @@ class Mage
         @raceaff = "druidim"
         @statmult = NewObj.new(**{"physical": 0.6, "magic": 1.8, "stealth": 1.2, "health": 1.1})
         @raceunaff = "human"
+        @waff = "magic"
+        @wunaff = "mele"
     end
 end
 
 class Warrior
 
-    attr_accessor :homecity, :raceaff, :statmult, :raceunaff, :name, :special_abilities
+    attr_accessor :homecity, :raceaff, :statmult, :raceunaff, :name, :special_abilities, :waff, :wunaff
 
     def initialize
         @name = "warrior"
         @homecity = "aurendale"
-        @raceaff = "druidim"
+        @raceaff = "harissif"
         @statmult = NewObj.new(**{"physical": 1.8, "magic": 0.7, "stealth": 0.8, "health": 1.4})
         @raceunaff = "druidim"
+        @waff = "mele"
+        @wunaff = "magic"
+
     end
 end
 
 class Thief
 
-    attr_accessor :homecity, :raceaff, :statmult, :raceunaff, :name, :special_abilities
+    attr_accessor :homecity, :raceaff, :statmult, :raceunaff, :name, :special_abilities, :waff, :wunaff
 
     def initialize
         @name = "thief"
@@ -328,8 +378,50 @@ class Thief
         @raceaff = "human"
         @statmult = NewObj.new(**{"physical": 1.2, "magic": 0.9, "stealth": 1.8, "health": 0.8})
         @raceunaff = "harissif"
+        @waff = "none"
+        @wunaff = "nome"
     end
 end
+
+
+class Weapons
+
+    attr_accessor :unarmed, :rusty_sword, :flimsy_bow, :training_staff, :pocket_knife
+
+    def initialize
+        @unarmed = NewObj.new(**{
+                                 "wtype": "dagger",
+                                 "type": "mele",
+                                 "damage": 1,
+                                 "ammo": nil,
+                                 "speed": 1
+                                })
+
+        @rusty_sword = NewObj.new(**{
+                                 "wtype": "sword",
+                                 "type": "mele",
+                                 "damage": 5,
+                                 "ammo": nil,
+                                 "speed": 3
+                                })
+
+        @flimsy_bow = NewObj.new(**{
+                                     "wtype": "bow",
+                                     "type": "mele",
+                                     "damage": 3,
+                                     "ammo": nil,
+                                     "speed": 5
+                                    })
+
+        @rusty_sword = NewObj.new(**{
+                                     "wtype": "sword",
+                                     "type": "mele",
+                                     "damage": 1,
+                                     "ammo": nil,
+                                     "speed": 3
+                                    })
+
+
 
 
 def sym x
