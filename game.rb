@@ -1,5 +1,6 @@
 require "json"
 """
+MIGHT NOT BE FUNCTIONAL IF IN PROGRESS. I UPLOAD OFTEN TO BACK UP.
 todo:
 can only travel to nearby location before traveling to further location. map must progress in a line. - buy teleport scroll,
 when classes level up they get more points to affiliated skills
