@@ -1,6 +1,5 @@
 require "json"
 """
-MIGHT NOT BE FUNCTIONAL IF IN PROGRESS. I UPLOAD OFTEN TO BACK UP.
 todo:
 can only travel to nearby location before traveling to further location. map must progress in a line. - buy teleport scroll,
 when classes level up they get more points to affiliated skills
@@ -33,7 +32,6 @@ class Game
         if @registered
             @user = @user_data[@username]
         end
-        @gdata = Gamedata.new
         command_call
     end
 
@@ -74,7 +72,7 @@ class Game
             if @command == "com_register"
                 com_register
             else
-                @response =  "You have not registered for the game yet. Use the command \"register\". Use the command \"info\" for any questions once registered. All game commands must have the word \"game\" in front of them, including any command prefix, unless using the terminal on your computer. Chatbot example: \"$game register calssname racename gender\". Terminal example \"register classname racename gender\"."
+                @response =  "You have not registered for the game yet. Use the command \"info register\" to get started. The command \"info\" will teach you about any game commands or items in the game. All game commands must have the word \"game\" in front of them, including any command prefix, unless using the terminal on your computer. Chatbot example: \"$game info register\". Terminal example: \"info register\"."
             end
         end
     end
@@ -94,63 +92,58 @@ class Game
                     break
                 end
             end
-            races = @gdata.races
             pnum, mnum, snum, hnum = 10,10,10,100
             pnum *= user_class.statmult.physical
             mnum *= user_class.statmult.magic
             snum *= user_class.statmult.stealth
             hnum *= user_class.statmult.health
             homecity = user_class.homecity
-            homevillage = @gdata.homevillages[sym(homecity)][sym(race)]
-            @user = NewObj.new(**{
-                "money": 500,
-                "weapons": ["unarmed"],
-                "title": "",
-                "progress": 0,
-                "location": "gamestart",
-                "homecity": homecity,
-                "stats": NewObj.new(**{"physical": pnum, "magic": mnum, "stealth": snum, "health": hnum}),
-                "level": 0,
-                "exp": 0,
-                "homevillage": homevillage[0],
-                "class": user_class.name,
-                "race": race,
-                "name": @username,
-                "guild": nil
-
-            })
+            homevillage = Homevillages.new(homecity, race).name
+            @user = User.new(500,
+                             [],
+                             @username,
+                             0,
+                             "gamestart",
+                             homecity,
+                             {"physical": pnum, "magic": mnum, "stealth": snum, "health": hnum},
+                             0,
+                             0,
+                             homevillage,
+                             user_class.name,
+                             race,
+                             nil,
+                             @username
+                            )
             @user_data[@username.downcase] = @user
             save_data
-            @response =  "You have now begun your journey. You were born in a small villiage named #{@user.homevillage} near the city #{@user.homecity}. To begin your adventure you must make your way to the guild in #{@user.homecity}. You own an a magic encyclopedia passed down to you from your ancestors. It only shows you the information you need to see. Use the command \"info\" to get started. All game commands must have the word \"game\" in front of them, including any command prefix. Exampe: \"$game register\"."
+            @response =  "You have now begun your journey. You were born in a small villiage named #{@user.homevillage} near the city #{@user.homecity}. To begin your adventure you must make your way to the guild in #{@user.homecity}. You own an a magic encyclopedia passed down to you from your parents. It only shows you the information you need to see. It is used by the command \"info\" Use the command \"info commands\" to get started."
         else
             @response =  "You are already registered."
         end
     end
 
     def com_progress
-        message = @gdata.progress_message
-        message = message[sym(@user.progress.to_s)]
-        @response =  message.gsub("<m>", @user.money.to_s).gsub("<h>", @user.homecity)
+        @response = Story.new(@user, "check").response
     end
 
     def com_wallet
-        @response =  ("In your wallet you have: " + Money.new(@user.money).calc)
+        @response =  ("In your wallet you have: " + Money.new.calc_money(@user.money))
     end
 
     def com_location
         location = @user.location
         if location == "gamestart"
-            desc = @gdata.homevillages[sym(@user.homecity)][sym(@user.race)][1]
-            @response = "You are in your home village, #{@user.homevillage}. It's description: #{desc}"
+            village = Homevillages.new(@user.homecity, @user.race)
+            @response = "You are in your home village, #{village.name}. It's description: #{village.description}"
             return
         end
-        for x, y in @gdata.locations
+        /for x, y in @gdata.locations
             loc =  y[:id]
             if loc == location
                 desc = y[:desc]
-                @response = "You are in #{x}. It's description: #{desc}."
+                @response = "You are in ."
             end
-        end
+        end/
     end
 
     def com_dice
@@ -159,7 +152,7 @@ class Game
 
     def com_travel
         /once traveled,
-        event_res = Events.new(@user).response
+        event_res = Story.new(@user).response
         if event_res.length > 0
             @response = event_res
             return
@@ -197,9 +190,15 @@ class NewObj
     end
 end
 
+#######################
+#                     #
+# GAME OBJECT CLASSES #
+#                     #
+#######################
+
 class User
 
-    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :name, :guild
+    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :guild, :name
 
     def initialize money, weapons, title, progress, location, homecity, stats, level, exp, homevillage, uclass, race, guild, username
         @money = money
@@ -208,13 +207,13 @@ class User
         @progress = progress
         @location = location
         @homecity = homecity
-        @stats = NewObj(**stats)
+        @stats = NewObj.new(**stats)
         @level = level
         @exp = exp
         @homevillage = homevillage
         @uclass = uclass
-        @race = race,
-        @guild = nil,
+        @race = race
+        @guild = guild
         @name = username
 
     end
@@ -222,20 +221,18 @@ end
 
 class Money
 
-    attr_accessor :calc
+    attr_accessor
 
-    def initialize money
+    def initialize
         @bronze = 1
         @brass = 100
         @silver = 1000
         @gold = 10000
-        @money = money
-        calc_money
     end
 
-    def calc_money
+    def calc_money money
         list = []
-        _money = @money
+        _money = money
         if _money > @gold
             _gold = _money / @gold
             _money -= @gold * _gold
@@ -256,82 +253,140 @@ class Money
             if _bronze > 1 then list.append("#{_bronze.to_s} bronze coins") else list.append("#{_bronze.to_s} bronze coin") end
         end
 
-        @calc =  string = (list.join(", ") + ".")
+        return (list.join(", ") + ".")
+    end
+end
+
+class Races
+
+    def initialize race
+        case race
+        when "druidim"
+            @name = "druidim"
+            @description = "description"
+        when "harissif"
+            @name = "harissif"
+            @description = "description"
+        when "human"
+            @name = "druidim"
+            @description = "description"
+        end
+    end
+end
+
+class Homevillages
+
+    attr_accessor :name, :description
+
+    def initialize homecity, race
+        @race = race
+        self.send(homecity.gsub(" ", "_"))
+    end
+
+    def aurendale
+        case @race
+        when "human"
+            @name = "villagename"
+            @description = "description"
+        when "druidim"
+            @name = "villagename"
+            @description = "description"
+        when "harissif"
+            @name = "villagename"
+            @description = "description"
+        end
+    end
+
+    def flora_city
+        case @race
+        when "human"
+            @name = "villagename"
+            @description = "description"
+        when "druidim"
+            @name = "villagename"
+            @description = "description"
+        when "harissif"
+            @name = "villagename"
+            @description = "description"
+        end
+    end
+
+    def lorienna
+        case @race
+        when "human"
+            @name = "villagename"
+            @description = "description"
+        when "druidim"
+            @name = "villagename"
+            @description = "description"
+        when "harissif"
+            @name = "villagename"
+            @description = "description"
+        end
     end
 end
 
 
+class Story
 
+    attr_accessor :response
 
-class Gamedata
-
-    attr_accessor :progress_message, :homevillages, :hometowns, :locations, :races
-
-    def initialize
-        @progress_message = {
-            "0": "You have just started on your journey to be a hero. You are kind of broke though, as you only have <m> gold, you have not had your first level up, but hopefully things work out well. Your job is to travel to the closest town, <h>, and join the guild.",
-            "1": "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
-        }
-        @locations = {"aurendale":
-                      {
-                        "nearby":[], "desc": "A grassland city with a large farming economy. It has a guild, an item shop, and a combat shop. There is a famed training ground for the greatest warriors in the country."
-                      },
-                      "lorienna":
-                     {
-                      "nearby":[], "desc": "A woodland city with people gifted in magic. It has a guild, an item shop, and a combat shop. The magic university is located here."
-                      },
-                      "flora city":
-                     {
-                      "nearby":[], "desc": "A coastal city full of year round flowers. Mostly warm weather and a good balance between rainy and sunny weather. It has a guild, an item shop, and a combat shop. Despite its beautiful appearance, on the outskirts of the city there is a slum that is teeming with theives and a thieves guild."
-                     }
-                     }
-        @homevillages = {
-            "aurendale": {
-                          "human": ["villagename","description"],
-                          "druidim": ["villagename","description"],
-                          "harissif": ["villagename","description"],
-
-                        },
-            "lorienna": {
-                          "human": ["villagename","description"],
-                          "druidim": ["villagename","description"],
-                          "harissif": ["villagename","description"],
-
-                          },
-            "flora city": {
-                          "human": ["florahumanvillagename","descriptionderp"],
-                          "druidim": ["villagename","description"],
-                          "harissif": ["villagename","description"],
-
-                          }
-                        }
-        @races = {"druidim": "description", "harissif": "description", "human": "description"}
-
-    end
-end
-
-class Events
-
-    attr_accessor :event, :story
-
-    def initialize user
+    def initialize user, action
+        @action = action
         _class = user.uclass
         @user = user
-        self.send(_class)
-        @response = ""
         @location = user.location
         @progress = user.progress
+        self.send(_class)
     end
 
     def mage
 
         case @progress
         when 0
-            if @location == "lorienna-guild"
+            if @location == "gamestart"
+                @response = "You are in your home village, #{@user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
+            elsif @location == "lorienna-guild"
                 @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"join guild\" and you will be signed up."
+            else
+                if @action == "check"
+                    @response = "I have left my village and am now in #{@user.homecity}. My task is to -travel- to the guild here."
+
+                end
             end
+        end
+    end
 
+    def thief
+        case @progress
+        when 0
+            if @location == "gamestart"
+                @response = "You are in your home village, #{@user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
+            elsif @location == "flora city-guild"
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"join guild\" and you will be signed up."
+            else
+                if @action == "check"
+                    @response = "I have left my village and am now in #{@user.homecity}. My task is to -travel- to the guild here."
 
+                end
+            end
+        end
+    end
+
+    def warrior
+
+        case @progress
+        when 0
+            if @location == "gamestart"
+                @response = "You are in your home village, #{user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
+            elsif @location == "aurendale-guild"
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"join guild\" and you will be signed up."
+            else
+                if @action == "check"
+                    @response = "I have left my village and am now in #{@user.homecity}. My task is to -travel- to the guild here."
+
+                end
+            end
         end
     end
 end
@@ -421,6 +476,8 @@ class Weapons
                                      "ammo": nil,
                                      "speed": 3
                                     })
+    end
+end
 
 
 
