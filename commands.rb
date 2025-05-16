@@ -80,8 +80,14 @@ class Commands
                     elsif operator == "-"
                         result -= rand (_num.to_i..(_num.to_i*sides.to_i))
                     elsif operator == "*"
+                        if result == 0
+                            result = 1
+                        end
                         result *= rand (_num.to_i..(_num.to_i*sides.to_i))
-                    elsif operator == "-"
+                    elsif operator == "/"
+                        if result == 0
+                            result = 1
+                        end
                         result /= rand (_num.to_i..(_num.to_i*sides.to_i))
                     end
                 end
@@ -97,7 +103,7 @@ class Commands
                 end
             end
         end
-        return result
+        return ("Result: "+result.to_s+" - Make sure to format the input text properly or it will return an incorrect result.")
     end
 
     def command_rsend message, string
