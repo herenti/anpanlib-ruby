@@ -10,6 +10,7 @@ each class has its own story.
 area random enemy encounters less by stealth. hit chance by stealth. attack speed by agility. put in agility in class info.
 check event on travel
 battles have battle id, event given battle id lets users use battle commands to interact with battle.
+migrate chatacter dialouge in story class to dialouge class. maybe narrator too?
 """
 
 def save_data user_data
@@ -122,7 +123,9 @@ class Commands
                              race,
                              nil,
                              @username,
-                             "none"
+                             nil,
+                             nil,
+                             nil
                             )
             @user_data[@username.downcase] = @user
             save_data @user_data
@@ -170,6 +173,7 @@ class Commands
             @user_data[@user.name] =  @user
             save_data @user_data
             return
+            can not travel or leave event location until event is over
         /
     end
 
@@ -337,6 +341,9 @@ class Locations
 ##########
 
 class Quests
+
+    #return info on travel if quest #id and progress, and character location is a match
+    #handle quest event code here. if match happens
 end
 
 class Story
@@ -435,9 +442,9 @@ end
 
 class User
 
-    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :guild, :name, :event
+    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :guild, :name, :event, :quest, :qprogress
 
-    def initialize money, weapons, title, progress, location, homecity, stats, level, exp, homevillage, uclass, race, guild, username, event
+    def initialize money, weapons, title, progress, location, homecity, stats, level, exp, homevillage, uclass, race, guild, username, event, quest, qprogress
         @money = money
         @weapons = weapons
         @title = title
@@ -453,6 +460,8 @@ class User
         @guild = guild
         @name = username
         @event = event
+        @quest = quest
+        @qprogress = qprogress
 
     end
 end
@@ -486,7 +495,7 @@ class Dialouge
                     @user.quest = 4267379352
                     @user_data[@user.name] = @user
                     save_data @user_data
-                    @response = "I have a quest for you. blahblah blah. do you wish to accept it? [\"talk kahn yes\", \"talk kahn no\"]"
+                    @response = "I have another quest for you. blahblah blah. do you wish to accept it? [\"talk kahn yes\", \"talk kahn no\"]"
                     return
                 end
 
@@ -508,6 +517,7 @@ class Dialouge
                     return
                 end
             when 1
+                #if condition not completed, @response = "Have you not completed it yet? come back to me "
 
             end
         elsif @quest == 4267379352
