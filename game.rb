@@ -1,4 +1,5 @@
 require "json"
+
 """
 todo:
 can only travel to nearby location before traveling to further location. map must progress in a line. - buy teleport scroll,
@@ -8,6 +9,7 @@ statmults by race affinity, levelup
 each class has its own story.
 area random enemy encounters less by stealth. hit chance by stealth. attack speed by agility. put in agility in class info.
 check event on travel
+battles have battle id, event given battle id lets users use battle commands to interact with battle.
 """
 
 def save_data user_data
@@ -59,26 +61,36 @@ class Game
     end
 
     def command_call
+        commands = Commands.new(@user_data, @username)
         if @registered
-            if self.respond_to?(@command)
-                self.send(@command)
+            if commands.respond_to?(@command)
+                @response = commands.send(@command, @args)
             else
                 @response = "That is not a valid command."
             end
         else
             if @command == "com_register"
-                com_register
+                @response = commands.com_register(@args)
             else
                 @response =  "You have not registered for the game yet. Use the command \"info register\" to get started. The command \"info\" will teach you about any game commands or items in the game. All game commands must have the word \"game\" in front of them, including any command prefix, unless using the terminal on your computer. Chatbot example: \"$game info register\". Terminal example: \"info register\"."
             end
         end
     end
+end
 
-    ############
-    #          #
-    # COMMANDS #
-    #          #
-    ############
+############
+#          #
+# COMMANDS #
+#          #
+############
+
+class Commands
+
+    def initialize user_data, username
+        @user_data = user_data
+        @user = @user_data[username]
+    end
+
 
     def com_register
         if !@registered
@@ -121,11 +133,11 @@ class Game
     end
 
     def com_progress
-        @response = Story.new(@user, "check").response
+        return Story.new(@user, "check").response
     end
 
     def com_wallet
-        @response =  ("In your wallet you have: " + Money.new.calc_money(@user.money))
+        return  ("In your wallet you have: " + Money.new.calc_money(@user.money))
     end
 
     def com_location
@@ -152,7 +164,7 @@ class Game
         /once traveled,
         random chance to assign battle event in wilderness
         story = Story.new(@user)
-        if story.event != nil
+        if story.event != nil #check for quests too.
             @response = story.response
             @user.event = story.event
             @user_data[@user.name] =  @user
@@ -161,16 +173,40 @@ class Game
         /
     end
 
-    def com_event
-        event = Events.new(@user_data, @user, args)
-        @response = event.response
+    def com_ joinguild
+        if @user.event == "joinguild"
+            if @user.location == (@user.homecity+"-guild")
+                @user.guild = guilds[@user.homecity]
+                @user.progress = 1
+                @response = "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
+                @user.event = nil
+                @user_data[@user.name] = @user
+                save_data @user_data
+                return
+            end
+        end
     end
 
-    def com_leave
+    def com_attack
+        if @user.event in battles
+            battle = Battles.new(@user.event)
+        end
+    end
+
+    def com_leave #guild, item shop, etc.
+    end
+
+    def com_talk
+        #get quests from npc. story events.
     end
 
 end
 
+#######################
+#                     #
+# GAME OBJECT CLASSES #
+#                     #
+#######################
 
 class NewObj
 
@@ -183,35 +219,11 @@ class NewObj
     end
 end
 
-#######################
-#                     #
-# GAME OBJECT CLASSES #
-#                     #
-#######################
-
-class User
-
-    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :guild, :name, :event
-
-    def initialize money, weapons, title, progress, location, homecity, stats, level, exp, homevillage, uclass, race, guild, username, event
-        @money = money
-        @weapons = weapons
-        @title = title
-        @progress = progress
-        @location = location
-        @homecity = homecity
-        @stats = NewObj.new(**stats)
-        @level = level
-        @exp = exp
-        @homevillage = homevillage
-        @uclass = uclass
-        @race = race
-        @guild = guild
-        @name = username
-        @event = event
-
-    end
-end
+#########
+#       #
+# MONEY #
+#       #
+#########
 
 class Money
 
@@ -251,22 +263,11 @@ class Money
     end
 end
 
-class Races
-
-    def initialize race
-        case race
-        when "druidim"
-            @name = "druidim"
-            @description = "description"
-        when "harissif"
-            @name = "harissif"
-            @description = "description"
-        when "human"
-            @name = "druidim"
-            @description = "description"
-        end
-    end
-end
+#############
+#           #
+# LOCATIONS #
+#           #
+#############
 
 class Homevillages
 
@@ -320,35 +321,22 @@ class Homevillages
     end
 end
 
+class Locations
 
-class Events
+    attr_accessor :description, :shops, :education, :quests
 
-    attr_accessor :response
+    def initialize loc
+        case loc
+        when "aurendale"
+            @de
 
-    def initialize user_data, user, event
-        @user_data = user_data
-        @event, @args = event.split(" ", 2)
-        @user = user
-        self.send(@event)
-    end
+##########
+#        #
+# EVENTS #
+#        #
+##########
 
-    def joinguild
-        if @user.event == "joinguild"
-            if @user.location == (@user.homecity+"-guild")
-                @user.guild = guilds[@user.homecity]
-                @user.progress = 1
-                @response = "Congradulations, you have joined the local guild. Your next goal is to buy weapons, armor, and any items before getting your first quest from the guild. It is dangerous out in the wild, so a quest is a good place to start."
-                @user.event = nil
-                @user_data[@user.name] = @user
-                save_data @user_data
-                return
-            end
-        end
-    end
-
-    def attack
-        battle = Battles.new(@user.event)
-    end
+class Quests
 end
 
 class Story
@@ -371,7 +359,7 @@ class Story
                 @response = "You are in your home village, #{@user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
                 @event = nil
             elsif @location == "#{@user.homecity}-guild"
-                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event joinguild\" and you will be signed up."
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"joinguild\" and you will be signed up."
                 @event = "joinguild"
             else
                 if @action == "check"
@@ -394,7 +382,7 @@ class Story
                 @response = "You are in your home village, #{@user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
                 @event = nil
             elsif @location == "#{@user.homecity}-guild"
-                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event joinguild\" and you will be signed up."
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"joinguild\" and you will be signed up."
                 @event = "joinguild"
             else
                 if @action == "check"
@@ -419,7 +407,7 @@ class Story
                 @response = "You are in your home village, #{user.homevillage}. It is time to leave behind life as your family has known it for generations and -travel- to the guild in #{@user.homecity}. once you leave your village you will never return..."
                 @event = nil
             elsif @location == "#{@user.homecity}-guild"
-                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"event joinguild\" and you will be signed up."
+                @response = "You have entered the Guild that you have set out to join. The clerk at the counter looks up at you, looking quite bored. \"Are you here to join the guild? He asks shyly. If you wish to join the guild, Say the command \"joinguild\" and you will be signed up."
                 @event = "joinguild"
             else
                 if @action == "check"
@@ -437,6 +425,113 @@ class Story
 end
 
 class Battles
+end
+
+##############
+#            #
+# CHARACTERS #
+#            #
+##############
+
+class User
+
+    attr_accessor :money, :weapons, :title, :progress, :location, :homecity, :stats, :level, :exp, :homevillage, :uclass, :race, :guild, :name, :event
+
+    def initialize money, weapons, title, progress, location, homecity, stats, level, exp, homevillage, uclass, race, guild, username, event
+        @money = money
+        @weapons = weapons
+        @title = title
+        @progress = progress
+        @location = location
+        @homecity = homecity
+        @stats = NewObj.new(**stats)
+        @level = level
+        @exp = exp
+        @homevillage = homevillage
+        @uclass = uclass
+        @race = race
+        @guild = guild
+        @name = username
+        @event = event
+
+    end
+end
+
+class Dialouge
+
+    attr_accessor :response
+
+    def initialize username, character, user_data, args
+        @user = user_data[username]
+        @user_data
+        @args = args
+        @character = character
+        @progress = @user.progress
+        @qprogress = @user.qprogress
+        @com_quests = @user.com_quest
+        @quest = @user.quest #@user.quest is quest #id
+        self.send(@character)
+    end
+
+    def kahn
+        if @quest == nil
+            if @qprogress = 0
+                if !@com_quests.include? 2173426243
+                    @user.quest = 2173426243
+                    @user_data[@user.name] = @user
+                    save_data @user_data
+                    @response = "I have a quest for you. blahblah blah. do you wish to accept it? [\"talk kahn yes\", \"talk kahn no\"]"
+                    return
+                elsif !@com_quests.include? 4267379352
+                    @user.quest = 4267379352
+                    @user_data[@user.name] = @user
+                    save_data @user_data
+                    @response = "I have a quest for you. blahblah blah. do you wish to accept it? [\"talk kahn yes\", \"talk kahn no\"]"
+                    return
+                end
+
+            end
+        if @quest == 2173426243
+            case @qprogress
+            when 0
+                if @args == "no"
+                    @user.quest = nil
+                    @user_data[@user.name] = @user
+                    save_data @user_data
+                    @response = "Come back to me if you want to accept it;"
+                    return
+                elsif @args == "yes"
+                    @user.qprogress = 1
+                    @user_data[@user.name] = @user
+                    save_data @user_data
+                    @response = "Thanks. THis is what i want you to do."
+                    return
+                end
+            when 1
+
+            end
+        elsif @quest == 4267379352
+            case @qprogress
+            when 1
+            end
+        end
+    end
+
+class Races
+
+    def initialize race
+        case race
+        when "druidim"
+            @name = "druidim"
+            @description = "description"
+        when "harissif"
+            @name = "harissif"
+            @description = "description"
+        when "human"
+            @name = "druidim"
+            @description = "description"
+        end
+    end
 end
 
 class Mage
@@ -485,6 +580,11 @@ class Thief
     end
 end
 
+#########
+#       #
+# ITEMS #
+#       #
+#########
 
 class Weapons
 
@@ -530,6 +630,10 @@ end
 
 def sym x
     return :"#{x}"
+end
+
+def gen_id
+    return rand(1000000000, 9999999999)
 end
 
 game = Game.new("herenti", "register", "thief human")
